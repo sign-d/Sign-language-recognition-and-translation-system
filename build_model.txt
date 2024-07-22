@@ -1,0 +1,7 @@
+model training and evaluation.
+
+data loading and pre-processing - load and split data
+model construction - create neural network and set up the model for training - train data
+training the model - fit model into training data
+evaluation - assess the model on test data, validation data
+save the model
