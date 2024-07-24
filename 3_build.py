@@ -26,7 +26,7 @@ class DatasetLoader:
         return np.array(self.data), np.array(self.labels)
 
 
-dataset_loader = DatasetLoader("data2.csv")
+dataset_loader = DatasetLoader("data1.csv")
 
 #load data
 data, labels = dataset_loader.load_data()
@@ -74,5 +74,5 @@ print("Loss: ", results[0])
 
 
 #save model
-model.save('model_2.h5')
+model.save('model_1.h5')
 
