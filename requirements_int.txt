@@ -1,0 +1,8 @@
+opencv-python
+numpy
+tensorflow
+pandas
+pyttsx3
+mediapipe
+PyQt5
+pytubefix
