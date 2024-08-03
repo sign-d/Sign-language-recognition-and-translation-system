@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - SignSense</title>
+    <style>
+        body {
+            background-color: #DFECF8; /* Updated background color */
+            color: black;
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .container {
+            width: 400px;
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            text-align: center;
+        }
+        .input-field {
+            width: calc(100% - 40px);
+            padding: 10px;
+            margin: 10px 0;
+            border: 2px solid orange;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        .password-container {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+        .password-container input {
+            width: 100%;
+        }
+        .eye-icon {
+            position: absolute;
+            right: 10px;
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+        }
+        .forgot-password, .signup-link {
+            color: #FFA500;
+            text-decoration: none;
+            display: block;
+            margin: 10px 0;
+        }
+        .signin-with {
+            margin: 10px 0;
+        }
+        .google-button {
+            background: #DB4437;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .login-button {
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-top: 10px;
+        }
+        .logo {
+            width: 30px;
+            height: 30px;
+            vertical-align: middle;
+            margin-right: 10px;
+        }
+        .error-message {
+            color: red;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Login to SignSense</h2>
+        <form id="login-form" action="{% url 'login' %}" method="post">
+            {% csrf_token %}
+            <div class="email-container">
+                <input type="email" name="email" class="input-field" placeholder="Email" required>
+            </div>
+            <div class="password-container">
+                <input type="password" name="password" class="input-field" placeholder="Password" required>
+                <img src="https://img.icons8.com/ios-filled/50/0000FF/visible.png" class="eye-icon" id="toggle-password" alt="Show Password" onerror="this.src='local/path/to/fallback-eye-icon.png'">
+            </div>
+            <div id="error-message" class="error-message"></div>
+            
+            <a href="#" class="forgot-password">Forgot Password</a>
+            
+            <div class="signin-with">
+                <button type="button" class="google-button">
+                    <img src="https://img.icons8.com/ios-filled/50/ffffff/google-logo.png" class="logo" alt="Google Logo">
+                    Sign in with Google
+                </button>
+            </div>
+            
+            <button type="submit" class="login-button">Login</button>
+        </form>
+        <a href="{% url 'signup' %}" class="signup-link">Don't have an account? Sign Up</a>
+    </div>
+
+    <script>
+        document.getElementById('login-form').addEventListener('submit', function(event) {
+            event.preventDefault(); // Prevent the form from submitting normally
+
+            var formData = new FormData(this);
+            var csrfToken = formData.get('csrfmiddlewaretoken');
+            var email = formData.get('email');
+            var password = formData.get('password');
+
+            // Check if all required fields are filled
+            if (!email || !password) {
+                document.getElementById('error-message').innerText = 'Please fill in all required fields';
+                return;
+            }
+
+            fetch("{% url 'login' %}", {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRFToken': csrfToken
+                }
+            })
+            .then(response => response.json()) // Expect JSON response from server
+            .then(data => {
+                if (data.status === 'success') {
+                    alert('Login successful');
+                    window.location.href = "{% url 'recog' %}"; // Redirect to recog page
+                } else {
+                    // Handle the errors
+                    var errorMessage = data.errors.join("\n");
+                    document.getElementById('error-message').innerText = 'Error: \n' + errorMessage;
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('There was an error with your login.');
+            });
+        });
+
+        document.getElementById('toggle-password').addEventListener('click', function() {
+            var passwordField = document.querySelector('input[name="password"]');
+            if (passwordField.type === 'password') {
+                passwordField.type = 'text';
+                this.src = 'https://img.icons8.com/ios-filled/50/0000FF/invisible.png';
+            } else {
+                passwordField.type = 'password';
+                this.src = 'https://img.icons8.com/ios-filled/50/0000FF/visible.png';
+            }
+        });
+    </script>
+</body>
+</html>

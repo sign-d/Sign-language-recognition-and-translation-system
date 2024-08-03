@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign Up - SignSense</title>
+    <style>
+        body {
+            background-color: #DFECF8;
+            color: black;
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .container {
+            width: 400px;
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            text-align: center;
+        }
+        .input-field {
+            width: calc(100% - 40px);
+            padding: 10px;
+            margin: 10px 0;
+            border: 2px solid blue;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        .password-container, .email-container {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+        .password-container input, .email-container input {
+            width: 100%;
+        }
+        .eye-icon {
+            position: absolute;
+            right: 10px;
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+        }
+        .signin-with {
+            margin: 10px 0;
+            font-size: 14px;
+        }
+        .google-button {
+            background: #DB4437;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 10px 0;
+        }
+        .google-button img {
+            width: 20px;
+            height: 20px;
+            margin-right: 10px;
+        }
+        .signup-button {
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-top: 10px;
+        }
+        .login-link {
+            color: #007BFF;
+            text-decoration: none;
+            display: block;
+            margin: 10px 0;
+        }
+        .error-message {
+            color: red;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Sign Up for SignSense</h2>
+        <form id="signup-form" action="{% url 'signup' %}" method="post">
+            {% csrf_token %}
+            <div class="email-container">
+                <input type="email" name="email" class="input-field" placeholder="Email" required>
+            </div>
+            <div class="password-container">
+                <input type="password" name="password1" class="input-field" placeholder="Password" required>
+                <img src="https://img.icons8.com/ios-filled/50/0000FF/visible.png" class="eye-icon" id="toggle-password1" alt="Show Password" onerror="this.src='SignSense/images/close-eye.png'">
+            </div>
+            <div class="password-container">
+                <input type="password" name="password2" class="input-field" placeholder="Confirm Password" required>
+                <img src="https://img.icons8.com/ios-filled/50/0000FF/visible.png" class="eye-icon" id="toggle-password2" alt="Show Password" onerror="this.src='local/path/to/fallback-eye-icon.png'">
+            </div>
+            <div id="error-message" class="error-message"></div>
+            
+            <div class="signin-with">
+                Sign up with
+            </div>
+            <button type="button" class="google-button">
+                <img src="https://img.icons8.com/ios-filled/50/ffffff/google-logo.png" alt="Google Logo">
+                Sign up with Google
+            </button>
+            
+            <button type="submit" class="signup-button">Sign Up</button>
+        </form>
+        <a href="{% url 'login' %}" class="login-link">Already have an account? Log In</a>
+    </div>
+
+    <script>
+        document.getElementById('signup-form').addEventListener('submit', function(event) {
+            event.preventDefault(); // Prevent the form from submitting normally
+
+            var formData = new FormData(this);
+            var csrfToken = formData.get('csrfmiddlewaretoken');
+            var password1 = formData.get('password1');
+            var password2 = formData.get('password2');
+
+            if (password1 !== password2) {
+                document.getElementById('error-message').innerText = 'Passwords do not match';
+                return;
+            }
+            if (password1.length < 6) {
+                document.getElementById('error-message').innerText = 'Password must be at least 6 characters long';
+                return;
+            }
+
+            fetch("{% url 'signup' %}", {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRFToken': csrfToken
+                }
+            })
+            .then(response => response.json()) // Expect JSON response from server
+            .then(data => {
+                if (data.status === 'success') {
+                    alert('Signup successful');
+                    window.location.href = "{% url 'recog' %}"; // Redirect to recog page
+                } else {
+                    // Handle the errors
+                    var errorMessage = data.errors.join("\n");
+                    document.getElementById('error-message').innerText = 'Error: \n' + errorMessage;
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('There was an error with your signup.');
+            });
+        });
+
+        document.getElementById('toggle-password1').addEventListener('click', function() {
+            var passwordField = document.querySelector('input[name="password1"]');
+            if (passwordField.type === 'password') {
+                passwordField.type = 'text';
+                this.src = 'https://img.icons8.com/ios-filled/50/0000FF/invisible.png';
+            } else {
+                passwordField.type = 'password';
+                this.src = 'https://img.icons8.com/ios-filled/50/0000FF/visible.png';
+            }
+        });
+
+        document.getElementById('toggle-password2').addEventListener('click', function() {
+            var passwordField = document.querySelector('input[name="password2"]');
+            if (passwordField.type === 'password') {
+                passwordField.type = 'text';
+                this.src = 'https://img.icons8.com/ios-filled/50/0000FF/invisible.png';
+            } else {
+                passwordField.type = 'password';
+                this.src = 'https://img.icons8.com/ios-filled/50/0000FF/visible.png';
+            }
+        });
+    </script>
+</body>
+</html>

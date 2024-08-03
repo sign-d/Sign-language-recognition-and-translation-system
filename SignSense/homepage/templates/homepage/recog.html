@@ -1,0 +1,180 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign Language Recognition Interface</title>
+    <link rel="stylesheet" href="{% static 'style.css' %}">
+    <script defer src="{% static 'script.js' %}"></script>
+</head>
+<body>
+    <header>
+        <nav>
+            <a href="{% url 'index' %}">Log Out</a>
+            <a href="{% url 'about' %}">About</a>
+        </nav>
+    </header>
+    <div class="container">
+        <div class="box">
+            <h2>Capture Frame</h2>
+            <select id="input-method" onchange="handleInputChange()">
+                <option value="">Select Input Method</option>
+                <option value="image">Image</option>
+                <option value="video">Video</option>
+                <option value="webcam">Webcam</option>
+                <option value="youtube">YouTube</option>
+            </select>
+            <div class="webcam" id="input-window">
+                <input type="file" id="file-input" accept="image/*" style="display: none;" onchange="loadFile(event)">
+                <input type="file" id="video-input" accept="video/*" style="display: none;" onchange="loadFile(event)">
+                <input type="text" id="youtube-input" placeholder="Enter YouTube URL" style="display: none;" onchange="loadYouTubeVideo()">
+            </div>
+        </div>
+        <div class="box">
+            <h2>Hand Landmarks</h2>
+            <div class="webcam" id="landmarks-window"></div>
+        </div>
+        <div class="prediction">
+            <h2>Predictions</h2>
+            <div class="predictions-output" id="predictions"></div>
+        </div>
+        <div class="result">
+            <h2>Result</h2>
+            <div class="result-output" id="result"></div>
+            <div class="audio-icon" id="audio-icon" onclick="speakResult()">🔊</div>
+        </div>
+    </div>
+    <script>
+        function handleInputChange() {
+            const inputMethod = document.getElementById('input-method').value;
+            const fileInput = document.getElementById('file-input');
+            const videoInput = document.getElementById('video-input');
+            const youtubeInput = document.getElementById('youtube-input');
+            const inputWindow = document.getElementById('input-window');
+
+            fileInput.style.display = 'none';
+            videoInput.style.display = 'none';
+            youtubeInput.style.display = 'none';
+
+            if (inputMethod === 'image') {
+                fileInput.style.display = 'block';
+            } else if (inputMethod === 'video') {
+                videoInput.style.display = 'block';
+            } else if (inputMethod === 'webcam') {
+                startWebcam();
+            } else if (inputMethod === 'youtube') {
+                youtubeInput.style.display = 'block';
+            }
+        }
+
+        function loadFile(event) {
+            const inputWindow = document.getElementById('input-window');
+            const file = event.target.files[0];
+            const url = URL.createObjectURL(file);
+
+            if (file.type.startsWith('image/')) {
+                const img = document.createElement('img');
+                img.src = url;
+                img.style.width = '100%';
+                img.style.height = '100%';
+                inputWindow.innerHTML = '';
+                inputWindow.appendChild(img);
+
+                // Send the image file to the backend for predictions
+                fetchPredictions(file);
+            } else if (file.type.startsWith('video/')) {
+                const video = document.createElement('video');
+                video.src = url;
+                video.style.width = '100%';
+                video.style.height = '100%';
+                video.controls = true;
+                inputWindow.innerHTML = '';
+                inputWindow.appendChild(video);
+            }
+        }
+
+        function startWebcam() {
+            const inputWindow = document.getElementById('input-window');
+            navigator.mediaDevices.getUserMedia({ video: true })
+                .then(stream => {
+                    inputWindow.innerHTML = '';
+                    const video = document.createElement('video');
+                    video.srcObject = stream;
+                    video.play();
+                    inputWindow.appendChild(video);
+
+                    // Capture frames from webcam and process them
+                    video.addEventListener('loadeddata', () => {
+                        setInterval(() => {
+                            const canvas = document.createElement('canvas');
+                            canvas.width = video.videoWidth;
+                            canvas.height = video.videoHeight;
+                            const context = canvas.getContext('2d');
+                            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+                            canvas.toBlob(blob => {
+                                fetchPredictions(blob);
+                            }, 'image/jpeg');
+                        }, 5000);  // Capture every 5 seconds, adjust as needed
+                    });
+                })
+                .catch(err => console.error('Error accessing webcam:', err));
+        }
+
+        function speakResult() {
+            const resultText = document.getElementById('result').textContent;
+            const speech = new SpeechSynthesisUtterance(resultText);
+            window.speechSynthesis.speak(speech);
+        }
+
+        function fetchPredictions(inputData) {
+            const apiUrl = '/api/predict/';
+            const formData = new FormData();
+            formData.append('file', inputData);
+
+            fetch(apiUrl, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken'),
+                },
+            })
+            .then(response => response.json())
+            .then(data => {
+                displayPredictions(data.predictions);
+            })
+            .catch(error => console.error('Error fetching predictions:', error));
+        }
+
+        function displayPredictions(predictions) {
+            const predictionsOutput = document.getElementById('predictions');
+            predictionsOutput.innerHTML = predictions.map(p => `${p.label}: ${(p.confidence * 100).toFixed(2)}%`).join('<br>');
+
+            const highestPrediction = predictions.reduce((max, p) => p.confidence > max.confidence ? p : max, predictions[0]);
+            document.getElementById('result').textContent = highestPrediction.label;
+        }
+
+        window.onbeforeunload = function () {
+            document.getElementById('input-window').innerHTML = '';
+            document.getElementById('landmarks-window').innerHTML = '';
+            document.getElementById('predictions').innerHTML = '';
+            document.getElementById('result').innerHTML = '';
+        };
+
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+    </script>
+</body>
+</html>
