@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SignSense</title>
+    <style>
+        body {
+            background-color: #4f4f4f;
+            color: white;
+            font-family: Arial, sans-serif;
+        }
+        .container {
+            width: 1024px;
+            margin: 0 auto;
+            text-align: center;
+        }
+        .top-buttons {
+            margin-top: 20px;
+        }
+        .top-buttons button {
+            background-color: #FFA500;
+            color: black;
+            font-size: 18px;
+            padding: 10px 20px;
+            margin: 0 10px;
+            border: none;
+            cursor: pointer;
+        }
+        .welcome-text {
+            font-size: 24px;
+            margin: 20px 0;
+        }
+        .main-image {
+            width: 600px;
+            height: auto;
+            margin: 20px 0;
+        }
+    </style>
+    <script>
+        function navigateToLogin() {
+            window.location.href = '/login/';
+        }
+    </script>
+</head>
+<body>
+    <div class="container">
+        <div class="top-buttons">
+            <button onclick="window.location.href='/about/'">About</button>
+            <button onclick="navigateToLogin()">login</button>
+            <button onclick="window.location.href='/signup/'">Sign Up</button>
+        </div>
+        <div class="welcome-text">
+            <img src="C:\Users\Administrator\Documents\ActionSense\SignSense\images\link.png" alt="Logo" style="width: 100px; height: 100px;">
+            <p>Welcome to<br>SignSense</p>
+        </div>
+        <img src="C:\Users\Administrator\Documents\ActionSense\SignSense\images\A feelings, or insights. (1).jpg" alt="Main Image" class="main-image">
+    </div>
+</body>
+</html>

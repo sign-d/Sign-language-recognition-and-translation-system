@@ -1,0 +1,247 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign Language Recognition Interface</title>
+    <link rel="stylesheet" href="{% static 'style.css' %}">
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils"></script>
+</head>
+<body>
+    <header>
+        <nav>
+            <a href="{% url 'index' %}">Log Out</a>
+            <a href="{% url 'about' %}">About</a>
+        </nav>
+    </header>
+    <div class="container">
+        <div class="box">
+            <h2>Capture Frame</h2>
+            <select id="input-method" onchange="handleInputChange()">
+                <option value="">Select Input Method</option>
+                <option value="image">Image</option>
+                <option value="video">Video</option>
+                <option value="webcam">Webcam</option>
+                <option value="youtube">YouTube</option>
+            </select>
+            <div class="capture-frame" id="capture-frame">
+                <!-- Media will be displayed here -->
+                <img id="display-image" style="display: none; width: 100%; height: auto;">
+                <video id="display-video" style="display: none; width: 100%; height: auto;" controls></video>
+                <iframe id="display-youtube" style="display: none; width: 100%; height: auto;" frameborder="0" allowfullscreen></iframe>
+                <video id="webcam-feed" style="display: none; width: 100%; height: auto;" autoplay></video>
+            </div>
+            <input type="file" id="file-input" accept="image/*" style="display: none;" onchange="loadFile(event)">
+            <input type="file" id="video-input" accept="video/*" style="display: none;" onchange="loadFile(event)">
+            <input type="text" id="youtube-input" placeholder="Enter YouTube URL" style="display: none;" onkeydown="if (event.key === 'Enter') loadYouTubeVideo()">
+            
+        </div>
+        <div class="box">
+            <h2>Hand Landmarks</h2>
+            <canvas id="landmarks-canvas"></canvas>
+        </div>
+        <div class="prediction">
+            <h2>Predictions</h2>
+            <div class="predictions-output" id="predictions"></div>
+        </div>
+        <div class="result">
+            <h2>Result</h2>
+            <div class="result-output" id="result"></div>
+            <div class="audio-icon" id="audio-icon" onclick="speakResult()">🔊</div>
+        </div>
+    </div>
+
+    <script>
+        let inputMethod = "";
+        const fileInput = document.getElementById('file-input');
+        const videoInput = document.getElementById('video-input');
+        const youtubeInput = document.getElementById('youtube-input');
+        const captureFrame = document.getElementById('capture-frame');
+        const displayImage = document.getElementById('display-image');
+        const displayVideo = document.getElementById('display-video');
+        const displayYouTube = document.getElementById('display-youtube');
+        const webcamFeed = document.getElementById('webcam-feed');
+    
+        function handleInputChange() {
+            inputMethod = document.getElementById('input-method').value;
+            fileInput.style.display = 'none';
+            videoInput.style.display = 'none';
+            youtubeInput.style.display = 'none';
+            displayImage.style.display = 'none';
+            displayVideo.style.display = 'none';
+            displayYouTube.style.display = 'none';
+            webcamFeed.style.display = 'none';
+    
+            if (inputMethod === 'image') {
+                fileInput.style.display = 'block';
+            } else if (inputMethod === 'video') {
+                videoInput.style.display = 'block';
+            } else if (inputMethod === 'youtube') {
+                youtubeInput.style.display = 'block';
+            } else if (inputMethod === 'webcam') {
+                webcamFeed.style.display = 'block';
+                startWebcam();
+            }
+        }
+    
+        function loadFile(event) {
+            const file = event.target.files[0];
+            const formData = new FormData();
+            formData.append(inputMethod, file);
+    
+            fetch(`/predict_${inputMethod}/`, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                displayPredictions(data.predicted_labels, data.predicted_probabilities);
+            });
+        }
+    
+        function extractYouTubeVideoId(url) {
+            const patterns = [
+                /youtube\.com\/watch\?v=([a-zA-Z0-9_-]+)/, // standard watch URL
+                /youtube\.com\/shorts\/([a-zA-Z0-9_-]+)/, // shorts URL
+                /youtu\.be\/([a-zA-Z0-9_-]+)/ // shortened URL
+            ];
+
+            for (let pattern of patterns) {
+                const match = url.match(pattern);
+                if (match) {
+                    return match[1];
+                }
+            }
+
+            return null;
+        }
+
+        function loadYouTubeVideo() {
+            const url = youtubeInput.value;
+
+            // Extract video ID
+            const videoId = extractYouTubeVideoId(url);
+            if (!videoId) {
+                alert('Invalid YouTube URL');
+                return;
+            }
+
+            // Construct standard watch URL
+            const standardUrl = `https://www.youtube.com/watch?v=${videoId}`;
+
+            // Prompt for start and end time
+            const startTime = prompt('Enter start time (hh:mm:ss)');
+            const endTime = prompt('Enter end time (hh:mm:ss)');
+
+            if (!startTime || !endTime) {
+                alert('Start time and end time are required');
+                return;
+            }
+
+            // Send request to download and extract the video
+            fetch('/predict_youtube/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: new URLSearchParams({
+                    'url': standardUrl,
+                    'start_time': startTime,
+                    'end_time': endTime
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'error') {
+                    alert(data.message);
+                } else {
+                    displayPredictions(data.predicted_labels, data.predicted_probabilities);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred while processing the video.');
+            });
+        }
+        
+    
+        const startWebcam = () => {
+            navigator.mediaDevices.getUserMedia({ video: true })
+                .then(stream => {
+                    webcamFeed.srcObject = stream;
+                    webcamFeed.play();
+    
+                    const hands = new Hands({ locateFile: file => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}` });
+                    hands.setOptions({
+                        maxNumHands: 1,
+                        minDetectionConfidence: 0.5,
+                        minTrackingConfidence: 0.5
+                    });
+    
+                    hands.onResults(results => {
+                        drawResults(results);
+                        predictWebcamFrame();
+                    });
+    
+                    async function predictWebcamFrame() {
+                        const model = await tf.loadLayersModel('/static/model/model_alpha_1.json');
+                        const labels = await fetch('/static/data/data_alpha_1.csv')
+                            .then(response => response.text())
+                            .then(text => text.split('\n').map(line => line.split(',')[0]));
+    
+                        async function framePrediction() {
+                            hands.send({ image: webcamFeed });
+                            const predictions = await predictFrame(webcamFeed, model, labels, hands);
+                            displayPredictions(predictions.predicted_labels, predictions.predicted_probabilities);
+                            requestAnimationFrame(framePrediction);
+                        }
+    
+                        framePrediction();
+                    }
+    
+                    function drawResults(results) {
+                        const canvas = document.getElementById('landmarks-canvas');
+                        canvas.width = webcamFeed.videoWidth;
+                        canvas.height = webcamFeed.videoHeight;
+                        const ctx = canvas.getContext('2d');
+                        ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+                        if (results.multiHandLandmarks) {
+                            for (const landmarks of results.multiHandLandmarks) {
+                                drawConnectors(ctx, landmarks, HAND_CONNECTIONS, { color: '#00FF00', lineWidth: 5 });
+                                drawLandmarks(ctx, landmarks, { color: '#FF0000', lineWidth: 2 });
+                            }
+                        }
+                    }
+                });
+        }
+    
+        function displayPredictions(predicted_labels, predicted_probabilities) {
+            const predictionsElement = document.getElementById('predictions');
+            predictionsElement.innerHTML = '';
+            predicted_labels.forEach((label, index) => {
+                const probability = predicted_probabilities[index].toFixed(2);
+                const labelElement = document.createElement('div');
+                labelElement.textContent = `${label}: ${probability}%`;
+                predictionsElement.appendChild(labelElement);
+            });
+    
+            const resultElement = document.getElementById('result');
+            resultElement.innerHTML = 'Top predictions: ' + predicted_labels.join(', ');
+        }
+    
+        function speakResult() {
+            const resultText = document.getElementById('result').innerText;
+            const utterance = new SpeechSynthesisUtterance(resultText);
+            speechSynthesis.speak(utterance);
+        }
+    </script>
+</body>
+</html>
